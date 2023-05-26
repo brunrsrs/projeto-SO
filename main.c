@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <pthread.h>
-#include<semaphore.h>
+#include <semaphore.h>
+#include "functions.h"
 
 //funções
 
@@ -11,7 +12,7 @@ int main()  {
     int op = 0;
 
     do {
-        printf("[1] Adicionar thread\n[2] Listar threads\n[0] Sair\nComando: ");
+        menu();
         scanf(" %d", &op);
         switch (op) {
             case 0:
