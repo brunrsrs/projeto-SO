@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include "functions.h"
 
-memoriaOcupada=0;
+int memoriaOcupada=0;
 
 void menu() {
-    printf("\n[1] - Adicionar Thread\n[2] Listar Threads\n[0] Sair\n[3] Estado memória\nComando: ");
+    printf("\n[1] Adicionar Thread\n[2] Listar Threads\n[3] Estado memória\n[0] Sair\nComando: ");
 }
 
 void memLoadReq(pg processo) {
@@ -36,19 +36,19 @@ void processFinish(pg processo){
     memoriaOcupada-=processo.tamanho;
     printf("\nProcesso encerrado.\n");
 }
-
+/*
 void programRead(FILE *synP, pg programa, char nomeProcesso[10]){ //synP de synthethic program
     //vai ser necessária a leitura dos "programas" (arquivos), essa função é pra isso
     //acho que vai acabar tendo que criar um objeto por programa ou fazer um vetor deles (e fazer funcionar)
     char comando[5];
     int valorComando;
 
-    synP = fopen("nomedoprocesso.txt", "r");    //nao consegui fazer abrir de acordo com o que o usuario escreve
-    if (synP == NULL) {
-        printf("\nErro ao abrir o programa\n");
+    synP = fopen(nomeProcesso, "r");    //nao consegui fazer abrir de acordo com o que o usuario escreve
+    if (synP == NULL) {                                 //só colocar o nome do arquivo bobinho
+        printf("\nErro ao abrir o programa\n"); 
         return 1;
     }
-
+}
     //pega os valores do header do txt
     fscanf(synP, "%s", programa.nome);
     fscanf(synP, "%d", &programa.ident);
@@ -92,7 +92,6 @@ void programRead(FILE *synP, pg programa, char nomeProcesso[10]){ //synP de synt
         }
         else printf("\nO comando %s não é válido", comando);
     }while(comando!=NULL);
-    
 
     //so pra ver os valores
     printf("Nome: %s\n", programa.nome);
@@ -103,4 +102,16 @@ void programRead(FILE *synP, pg programa, char nomeProcesso[10]){ //synP de synt
 
     fclose(synP);
     return 0;
+}
+
+    */
+
+//Algumas funções do escalonamento
+
+int interruptControl() {
+
+}
+
+int sysCall() {
+    //processInterrupt()
 }
