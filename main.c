@@ -38,6 +38,8 @@ int main()  {
     setlocale(LC_ALL, ""); //permite usar ç ã é ï ò û
     int op = 0;
 
+    char nomeProcesso[10];
+
     pthread_t t1;
     // pthread_create(&t1, NULL, (void*)função, argumentos); como criar uma thread aí
     // pthread_join(t1, NULL); como colocar a thread pra rodar
@@ -49,6 +51,9 @@ int main()  {
             case 0:
                 break;
             case 1:
+                printf("\nInsira o nome do processo que deseja abrir\n");
+                scanf("%s", nomeProcesso);
+                programRead(nomeProcesso);//aaaaaaaaaaaaaaaaaaaaaa
                 break;
             case 2:
                 break;
