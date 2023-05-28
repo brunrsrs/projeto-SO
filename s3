@@ -7,15 +7,9 @@ s t
 exec 100
 read 10
 P(s)
-exec 400
-read 30
-exec 200
-exec 500
-exec 20000
-write 20
+print 150
 P(t)
 V(t)
-print 150
 exec 500
 V(s)
 exec 10
