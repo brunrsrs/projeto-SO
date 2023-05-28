@@ -9,14 +9,16 @@ typedef struct programa {
 
 void menu();
 
+int interruptControl(); //retorna valor que ativa a thread
+
 void processInterrupt();
 
 void memLoadReq(pg);
 
 void memLoadFinish();
 
-void processCreate(pg);
+//void processCreate(pg);
 
 void processFinish(pg);
 
-void programRead(FILE *, pg);
+void programRead(char);
