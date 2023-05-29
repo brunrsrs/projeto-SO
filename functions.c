@@ -118,7 +118,8 @@ void *exec(void* banco) {
                 
                 }
             fclose(reader);
-            processFinish(b->prog->tamanho, b);
+            b->prog = b->prog->prox;
+//            processFinish(b->prog->tamanho, b);
         }
     active=0;
     sleep(1);
@@ -143,11 +144,12 @@ int inserir(programa *p, bcp *b){   //p é o programa a ser inserido, b é a bcp
             return 1;
         }
         
+
         programa *aux = b->prog;
 
+
         //caso precise inserir no começo, inserir na 2° posição para não quebrar o que está rodando
-        if (aux->tamanho < aux->prox->tamanho) {
-            aux = aux->prox;
+        if (aux->prox && aux->tamanho < aux->prox->tamanho) {
             if (aux->prox == NULL) { //caso não tenha mais nada depois
                 aux->prox = p;
                 p->prox = NULL;
@@ -253,6 +255,9 @@ int programRead(struct programa *pg, char nomeProcesso[10], struct bcp *b){ //sy
     FILE *synP;
     char comando[5];
     int valorComando;
+    char auxTxt[10];
+    char auxChar;
+    int aux;
 
     synP = fopen(nomeProcesso, "r");    //nao consegui fazer abrir de acordo com o que o usuario escreve
     if (synP == NULL) {                                 //só colocar o nome do arquivo bobinho
@@ -260,10 +265,8 @@ int programRead(struct programa *pg, char nomeProcesso[10], struct bcp *b){ //sy
         return 0;
     }
 
+    pg->tempo = 0;
     //pega os valores do header do txt
-    char auxTxt[10];
-    char auxChar;
-    int aux;
     strcpy(pg->nome, nomeProcesso); //Define o nome do programa como nome do arquivo inicializavel
     
     fscanf(synP, "%s", auxTxt); //Pula o nome do arquivo

@@ -72,11 +72,11 @@ int main()  {
                 case 0:
                     break;
                 case 1:
-                    printf("\nInsira o nome do processo que deseja abrir\n");
+                    printf("\nInsira o nome do processo que deseja abrir: ");
                     scanf(" %s", nomeProcesso);
                     pthread_mutex_lock(&lock);
-                    programRead(&pg, nomeProcesso, &b);
-                    inserir(&pg, &b);
+                    if (programRead(&pg, nomeProcesso, &b))
+                        inserir(&pg, &b);   //problema para inserir 2 valores ou mais
                     pthread_mutex_unlock(&lock);
                     break;
                 case 2:
@@ -85,11 +85,11 @@ int main()  {
                         printf("\n\tStatus:");
                         printf("\nNome: %s", auxPg.nome);
                         printf("\nFunção executando: %s", comando);
-                        printf("\nTempo estimado do processo: %d U.T.\n", auxPg.tempo);
+                        printf("\nTempo estimado do processo: %d Unit Tempo.\n", auxPg.tempo);
                         pthread_mutex_unlock(&lock);
                     }
                     else {
-                        printf("\nNenhum programa execurando no momento!");
+                        printf("\nNenhum programa execurando no momento!\n");
                     }
                     break;
                 case 3:
