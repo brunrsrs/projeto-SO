@@ -7,6 +7,9 @@
 #include <semaphore.h>
 #include "functions.h"
 
+#define GIGA 1000000000 //o limite é de memória é 1 GB
+#define nBlocos 125000000 //cada bloco tem 8 bytes, então cabem 125 milhões de blocos nisso
+
 //funções
 
 /*
@@ -37,30 +40,30 @@ Coisas a se fazer:
 */
 
 //Temporizador sintético do programa
-volatile int t=0;
 
-void* timer() {
-    while(1) {
-        t++;
-        sleep(1);
-    }
-}
+//Variáveis globias
+blocos bloco[nBlocos];
+char comando[10];
+int active = 0;
+pthread_mutex_t lock;
+bcp b;
 
+//Função main
 int main()  {
     setlocale(LC_ALL, ""); //permite usar ç ã é ï ò û
     int op = 0;
-    bcp b;
-    programa aux;
-    char nomeProcesso[10];
+    programa pg;
+    char nomeProcesso[16];
 
     if (!inicializaBCP(&b))
         return 0;
 
-    pthread_t t1;
-    // pthread_create(&t1, NULL, (void*)função, argumentos); como criar uma thread aí
-    // pthread_join(t1, NULL); como colocar a thread pra rodar
+    if (!inicializaPg(&pg))
+        return 0;
 
-    if (pthread_create(&t1, NULL, timer, NULL) == 0) { //se foi possivel inicializar o timer
+    pthread_t execThread;
+    pthread_create(&execThread, NULL, exec, NULL);
+
         do {
             menu();
             scanf(" %d", &op);
@@ -70,7 +73,10 @@ int main()  {
                 case 1:
                     printf("\nInsira o nome do processo que deseja abrir\n");
                     scanf(" %s", nomeProcesso);
-                    programRead(&aux, nomeProcesso, &b);
+                    programRead(&pg, nomeProcesso, &b);
+                    pthread_mutex_lock(&lock);
+                    inserir(&pg, &b);
+                    pthread_mutex_unlock(&lock);
                     break;
                 case 2:
                     break;
@@ -80,13 +86,6 @@ int main()  {
                     break;
             }
         } while(op != 0);
-    
-    printf("\n\ttempo exec: %d segundos\n", t);
-
-    }
-
-    else
-        printf("Erro ao criar o temporizador\n");
 
 return 0;
 }

@@ -1,23 +1,39 @@
 typedef struct programa {
     char nome[20];
     int ident;
-    int prioridade;
-    int tempo;
+    int prior;
+    char semaforos[10];
     int tamanho;
-    char semaforos[5];//coloquei esses 2 parametros aqui, de acordo com o gpt isso é o bcp já
+    int tempo;
+    struct programa *prox; //próximo da lista
 } programa;
 
-
 typedef struct bcp {
-    programa *prog;
+    programa *prog; //cabeça da lista
     int tamTotal;
-    struct bcp *prox;
 } bcp;
+
+//structs pra paginação
+typedef struct blocos{
+    int ocupado;
+    struct pagina *pagina;
+} blocos;
+
+typedef struct pagina{
+    int refBit;
+} pagina;
+
 
 
 //funções de controle
 void menu();
 int inicializaBCP(bcp*);
+int inicializaPg(programa*);
+void *exec();
+
+//funções da lista
+int inserir(struct programa*, struct bcp*);
+int processFinish(int, struct bcp*); //previamente conhecida como "remover"
 
 //funções do banco de dados
 int programRead(struct programa*, char*, struct bcp*);
@@ -26,6 +42,8 @@ void memLoadReq(struct programa*, struct bcp*);
 int interruptControl(); //retorna valor que ativa a thread
 void processInterrupt();
 void memLoadFinish();
-void processFinish(struct programa, struct bcp);
+
 
 //funções do escalonador
+void semaphoreP();  //TO DO
+void semaphoreV();  //TO DO
