@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 #include "functions.h"
 
 #define GIGA 1000000000 //o limite é de memória é 1 GB
@@ -46,16 +47,17 @@ int inicializaPg(programa *p) {
     return 1;
 }
 
-void *exec() {
+void *exec(void* banco) {
+    bcp *b = (bcp*)banco;
     char auxChar = '0';
     char auxString[10];
     int auxInt;
     programa auxPg;
     FILE* reader;
     while(1) {
-        if (b.prog) {
+        if (b->prog != NULL) {
                 active = 1;
-                reader = fopen(b.prog->nome, "r");
+                reader = fopen(b->prog->nome, "r");
                 fscanf(reader, "%s\n", auxString);
                 strcpy(auxPg.nome, auxString);
                 printf("\n\t%s", auxPg.nome);
@@ -64,14 +66,21 @@ void *exec() {
                 fscanf(reader, "%d\n", &auxPg.prior);
                 printf("\n\t%d", auxPg.prior);
                 fscanf(reader, "%d\n", &auxPg.tamanho);
-                while(auxChar!='\n')
+                
+                auxChar = getc(reader);
+                while (auxChar!='\n'){
                     strncat(auxPg.semaforos, &auxChar, 1);
+                    auxChar = getc(reader);
+                } 
+                printf("\n\t%s\n", auxPg.semaforos);
 
-                fscanf(reader, "\n");
+                auxChar = getc(reader);
 
-                printf("%s", auxPg.semaforos);
 
                 while (!feof(reader)) {
+                fscanf(reader, "%s", comando);
+                printf("Comando: %s\n", comando);
+
                 if(strcmp("exec", comando) == 0){ //ele pediu pra executar por auxInt tempo
                     fscanf(reader, " %d\n", &auxInt);
                     sleep(auxInt);
@@ -98,10 +107,13 @@ void *exec() {
                 else if(strcmp("P(t)", comando) == 0){
                     getc(reader);
                 }
+                else
+                    auxChar = getc(reader);
+            
             }
             printf("passou aqui");
-            processFinish(b.prog->tamanho, &b);
             fclose(reader);
+            processFinish(b->prog->tamanho, b);
         }
     active=0;
     sleep(1);
@@ -155,23 +167,36 @@ int inserir(programa *p, bcp *b){   //p é o programa a ser inserido, b é a bcp
 }
 
 void atribuiPagina(bcp *b){
-    if(b->tamTotal > 8){
-        for(int i=0 ; i < b->tamTotal/8 ; i++)
-            bloco[i].ocupado=1;
+    for(int i=0 ; i < ceil(b->tamTotal/8) ; i++){
+        bloco[i].ocupado=1;
+        bloco[i].pagina->refBit = 1;
+    }
+}
+
+void removePagina(bcp *b, int tam){
+    for(int i=ceil((b->tamTotal/8)-1) ; i > (b->tamTotal/8)-1 - ceil(tam/8) ; i--){
+        bloco[i].ocupado = 0;
+        bloco[i].pagina->refBit = 0;
     }
 }
 
 int processFinish(int tam, bcp *b){ //para remover um processo quando seu tempo zera
+
+    if (!b || !b->prog)
+        return 0;
+
     if(b->tamTotal - tam < 0){   //verificando se a subtração dá um valor inválido
         printf("\nAlgo deu errado na remoção");
         return 0;
     }
 
     programa *aux = b->prog;
-    if(b->prog->prox) //como a inserção é ordenada, a remoção será sempre no início da lista
-        b->prog = b->prog->prox;
+    if(aux->prox) //como a inserção é ordenada, a remoção será sempre no início da lista
+        b->prog = aux->prox;
     
-    else b->prog->prox==NULL;   //quando nao resta nada depois da remoção
+    else 
+        b->prog->prox = NULL;   //quando nao resta nada depois da remoção
+    
     b->tamTotal -= tam;
 
     free(aux);
