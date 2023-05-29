@@ -9,7 +9,8 @@
 #define nBlocos 125000000   //cada bloco tem 8 bytes, então cabem 125 milhões de blocos nisso
 
 extern bcp b;
-extern char comando[10];
+extern programa auxPg;
+extern char comando[20];
 extern int active;
 extern blocos bloco[nBlocos];
 
@@ -40,7 +41,7 @@ int inicializaPg(programa *p) {
     p->nome[0] = '0';
     p->ident = 0;
     p->prior = 0;
-    p->semaforos[0] = '0';
+    p->semaforos[0] = '\0';
     p->prox = NULL;
     p->tamanho=0;
     p->tempo=0;
@@ -49,22 +50,22 @@ int inicializaPg(programa *p) {
 
 void *exec(void* banco) {
     bcp *b = (bcp*)banco;
+    int counter=0;
     char auxChar = '0';
     char auxString[10];
     int auxInt;
-    programa auxPg;
     FILE* reader;
     while(1) {
-        if (b->prog != NULL) {
+        if (b->prog) {
+                strcpy(comando, "Lendo dados");
                 active = 1;
                 reader = fopen(b->prog->nome, "r");
+
+                auxPg.tempo = b->prog->tempo;
                 fscanf(reader, "%s\n", auxString);
                 strcpy(auxPg.nome, auxString);
-                printf("\n\t%s", auxPg.nome);
                 fscanf(reader, "%d\n", &auxPg.ident);
-                printf("\n\t%d", auxPg.ident);
                 fscanf(reader, "%d\n", &auxPg.prior);
-                printf("\n\t%d", auxPg.prior);
                 fscanf(reader, "%d\n", &auxPg.tamanho);
                 
                 auxChar = getc(reader);
@@ -72,46 +73,50 @@ void *exec(void* banco) {
                     strncat(auxPg.semaforos, &auxChar, 1);
                     auxChar = getc(reader);
                 } 
-                printf("\n\t%s\n", auxPg.semaforos);
 
                 auxChar = getc(reader);
 
-
                 while (!feof(reader)) {
-                fscanf(reader, "%s", comando);
-                printf("Comando: %s\n", comando);
+                    fscanf(reader, "%s", comando);
 
-                if(strcmp("exec", comando) == 0){ //ele pediu pra executar por auxInt tempo
-                    fscanf(reader, " %d\n", &auxInt);
-                    sleep(auxInt);
+                    if(strcmp("exec", comando) == 0){ //ele pediu pra executar por auxInt tempo
+                        fscanf(reader, " %d\n", &auxInt);
+                        while(auxInt>=0) {
+                            usleep(1000);
+                            auxInt--;
+                            auxPg.tempo--;
+                        }
+                    }
+                    else if(strcmp("read", comando) == 0){
+                        fscanf(reader, " %d\n", &auxInt);
+                    }
+                    else if(strcmp("write", comando) == 0){
+                        fscanf(reader, " %d\n", &auxInt);
+                    }
+                    else if(strcmp("print", comando) == 0){ //ele pediu pra executar por auxInt tempo
+                        fscanf(reader, " %d\n", &auxInt);
+                        while(auxInt>=0) {
+                            usleep(1000);
+                            auxInt--;
+                            auxPg.tempo--;
+                        }
+                    }
+                    else if(strcmp("P(s)", comando) == 0){
+                        getc(reader);
+                    }
+                    else if(strcmp("V(s)", comando) == 0){
+                        getc(reader);
+                    }
+                    else if(strcmp("V(t)", comando) == 0){
+                        getc(reader);
+                    }
+                    else if(strcmp("P(t)", comando) == 0){
+                        getc(reader);
+                    }
+                    else
+                        auxChar = getc(reader);
+                
                 }
-                else if(strcmp("read", comando) == 0){
-                    fscanf(reader, " %d\n", &auxInt);
-                }
-                else if(strcmp("write", comando) == 0){
-                    fscanf(reader, " %d\n", &auxInt);
-                }
-                else if(strcmp("print", comando) == 0){ //ele pediu pra executar por auxInt tempo
-                    fscanf(reader, " %d\n", &auxInt);
-                    sleep(auxInt);
-                }
-                else if(strcmp("P(s)", comando) == 0){
-                    getc(reader);
-                }
-                else if(strcmp("V(s)", comando) == 0){
-                    getc(reader);
-                }
-                else if(strcmp("V(t)", comando) == 0){
-                    getc(reader);
-                }
-                else if(strcmp("P(t)", comando) == 0){
-                    getc(reader);
-                }
-                else
-                    auxChar = getc(reader);
-            
-            }
-            printf("passou aqui");
             fclose(reader);
             processFinish(b->prog->tamanho, b);
         }
@@ -124,6 +129,7 @@ void *exec(void* banco) {
 int inserir(programa *p, bcp *b){   //p é o programa a ser inserido, b é a bcp mesmo
     if(b->tamTotal+p->tamanho <= GIGA) {
         b->tamTotal+=p->tamanho;
+//        atribuiPagina(b, p);
 
         if (!p || !b) {
             printf("\n\tNão foi possível inicializar\n");
@@ -139,8 +145,13 @@ int inserir(programa *p, bcp *b){   //p é o programa a ser inserido, b é a bcp
         
         programa *aux = b->prog;
 
-        //insere no começo
-        if (aux->tamanho <= aux->prox->tamanho) {
+        //caso precise inserir no começo, inserir na 2° posição para não quebrar o que está rodando
+        if (aux->tamanho < aux->prox->tamanho) {
+            aux = aux->prox;
+            if (aux->prox == NULL) { //caso não tenha mais nada depois
+                aux->prox = p;
+                p->prox = NULL;
+            }
             aux->prox = b->prog;
             b->prog = aux;
             return 1;
@@ -166,40 +177,48 @@ int inserir(programa *p, bcp *b){   //p é o programa a ser inserido, b é a bcp
     }
 }
 
-void atribuiPagina(bcp *b){
+//funções pras páginas
+void atribuiPagina(bcp *b, programa *p){ //ocupa o (teto do tamanho ocupado/8) páginas
+    p->pagina = (int*) malloc((ceil(b->tamTotal/8)) * sizeof(int));    //vai precisar de um vetor dinamico pra guardar as paginas ocupadas
+    
     for(int i=0 ; i < ceil(b->tamTotal/8) ; i++){
         bloco[i].ocupado=1;
         bloco[i].pagina->refBit = 1;
+        bloco[i].pagina->numPag = i;
+        p->pagina[i] = ceil(b->tamTotal/8) + i;//se um processo ocupa 1 pagina, ele terá a pagina[0] atrelado à pagina 20 da memória, por exemplo
     }
 }
 
-void removePagina(bcp *b, int tam){
-    for(int i=ceil((b->tamTotal/8)-1) ; i > (b->tamTotal/8)-1 - ceil(tam/8) ; i--){
+void removePagina(bcp *b, int tam){//'remove' paginas a partir da ultima pagina ocupada
+    for(int i=ceil((b->tamTotal/8)-1); i > ceil((b->tamTotal/8)-1) - ceil(tam/8) ; i--){
         bloco[i].ocupado = 0;
-        bloco[i].pagina->refBit = 0;
+        free(bloco[i].pagina);
     }
 }
 
 int processFinish(int tam, bcp *b){ //para remover um processo quando seu tempo zera
 
-    if (!b || !b->prog)
+    if (!b || !b->prog) {
+        printf("\nAlgo deu errado no processo");
         return 0;
+    }
 
     if(b->tamTotal - tam < 0){   //verificando se a subtração dá um valor inválido
         printf("\nAlgo deu errado na remoção");
         return 0;
     }
-
     programa *aux = b->prog;
+
     if(aux->prox) //como a inserção é ordenada, a remoção será sempre no início da lista
         b->prog = aux->prox;
     
     else 
-        b->prog->prox = NULL;   //quando nao resta nada depois da remoção
+        b->prog = NULL;   //quando nao resta nada depois da remoção
     
     b->tamTotal -= tam;
+//    removePagina(b, tam);
 
-    free(aux);
+//    free(aux);
     return 1;
 }
 
@@ -231,8 +250,6 @@ void processCreate(programa *processo, bcp *b) {
 }
 
 int programRead(struct programa *pg, char nomeProcesso[10], struct bcp *b){ //synP de synthethic program
-    //vai ser necessária a leitura dos "programas" (arquivos), essa função é pra isso
-    //acho que vai acabar tendo que criar um objeto por programa ou fazer um vetor deles (e fazer funcionar)
     FILE *synP;
     char comando[5];
     int valorComando;

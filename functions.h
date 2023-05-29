@@ -5,6 +5,7 @@ typedef struct programa {
     char semaforos[10];
     int tamanho;
     int tempo;
+    int *pagina;
     struct programa *prox; //próximo da lista
 } programa;
 
@@ -16,10 +17,11 @@ typedef struct bcp {
 //structs pra paginação
 typedef struct blocos{
     int ocupado;
-    struct pagina *pagina;
+    struct pagina *pagina;  
 } blocos;
 
 typedef struct pagina{
+    int numPag;
     int refBit;
 } pagina;
 
@@ -42,6 +44,10 @@ void memLoadReq(struct programa*, struct bcp*);
 int interruptControl(); //retorna valor que ativa a thread
 void processInterrupt();
 void memLoadFinish();
+
+//funções de paginação
+void atribuiPagina(struct bcp*, struct programa*);
+void removePagina(struct bcp*, int);
 
 
 //funções do escalonador
