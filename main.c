@@ -62,7 +62,7 @@ int main()  {
         return 0;
 
     pthread_t execThread;
-    pthread_create(&execThread, NULL, exec, NULL);
+    pthread_create(&execThread, NULL, exec, (void*)&b);
 
         do {
             menu();

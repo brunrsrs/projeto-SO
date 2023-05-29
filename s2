@@ -4,17 +4,17 @@ sint2
 10
 s t
 
-exec 100
+exec 10
 read 10
-exec 400
+exec 4
 P(s)
-exec 500
+exec 5
 read 30
-exec 200
+exec 2
 P(t)
-exec 20000
+exec 2
 write 20
 V(t)
-print 150
+print 6
 V(s)
-exec 500
+exec 3

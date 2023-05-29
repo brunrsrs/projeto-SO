@@ -29,7 +29,7 @@ typedef struct pagina{
 void menu();
 int inicializaBCP(bcp*);
 int inicializaPg(programa*);
-void *exec();
+void *exec(void*);
 
 //funções da lista
 int inserir(struct programa*, struct bcp*);
