@@ -42,11 +42,12 @@ Coisas a se fazer:
 //Temporizador sintético do programa
 
 //Variáveis globias
-blocos bloco[nBlocos];
+blocos bloco[nBlocos];  //tem que inicializar
 char comando[10];
 int active = 0;
 pthread_mutex_t lock;
 bcp b;
+programa auxPg;
 
 //Função main
 int main()  {
@@ -73,14 +74,29 @@ int main()  {
                 case 1:
                     printf("\nInsira o nome do processo que deseja abrir\n");
                     scanf(" %s", nomeProcesso);
-                    programRead(&pg, nomeProcesso, &b);
                     pthread_mutex_lock(&lock);
+                    programRead(&pg, nomeProcesso, &b);
                     inserir(&pg, &b);
                     pthread_mutex_unlock(&lock);
                     break;
                 case 2:
+                    if (active == 1) {
+                        pthread_mutex_lock(&lock);
+                        printf("\n\tStatus:");
+                        printf("\nNome: %s", auxPg.nome);
+                        printf("\nFunção executando: %s", comando);
+                        printf("\nTempo estimado do processo: %d U.T.\n", auxPg.tempo);
+                        pthread_mutex_unlock(&lock);
+                    }
+                    else {
+                        printf("\nNenhum programa execurando no momento!");
+                    }
                     break;
                 case 3:
+                    printf("\n\tStatus da memória:");
+                    sleep(3);
+                    printf("\nSeila maluco nao fiz ainda kk\n");
+
                     break;
                 default: printf("Inválido"); 
                     break;
