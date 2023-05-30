@@ -4,12 +4,12 @@ sint3
 25
 s t
 
-exec 100
+print 100
 read 10
 P(s)
 print 150
 P(t)
 V(t)
-exec 500
+print 500
 V(s)
-exec 10
+print 10

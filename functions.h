@@ -1,3 +1,4 @@
+//Struct que armazenará os valores lidos
 typedef struct programa {
     char nome[20];
     int ident;
@@ -5,27 +6,33 @@ typedef struct programa {
     char semaforos[10];
     int tamanho;
     int tempo;
-    int *pagina;
+    float *pagina;
     struct programa *prox; //próximo da lista
 } programa;
 
+//Bloco de banco de dados
 typedef struct bcp {
     programa *prog; //cabeça da lista
     int tamTotal;
 } bcp;
 
-//structs pra paginação
-typedef struct blocos{
-    int ocupado;
-    struct pagina *pagina;  
-} blocos;
-
+//Struct da página da paginação
 typedef struct pagina{
     int numPag;
     int refBit;
 } pagina;
 
+//structs pra paginação
+typedef struct blocos{
+    int ocupado;
+    struct pagina *paginas;
+} blocos;
 
+typedef struct semaforo {
+    int posiFila;
+    struct programa *queue[10]; //Número arbitrário de placeholder
+    int valor;
+} semaforo;
 
 //funções de controle
 void menu();
@@ -33,23 +40,16 @@ int inicializaBCP(bcp*);
 int inicializaPg(programa*);
 void *exec(void*);
 
-//funções da lista
+//funções do banco de dados
+int processCreate(char*); //previamente conhecida como "progRead"
 int inserir(struct programa*, struct bcp*);
 int processFinish(int, struct bcp*); //previamente conhecida como "remover"
 
-//funções do banco de dados
-int programRead(struct programa*, char*, struct bcp*);
-void processCreate(struct programa*, struct bcp*);
-void memLoadReq(struct programa*, struct bcp*);
-int interruptControl(); //retorna valor que ativa a thread
-void processInterrupt();
-void memLoadFinish();
-
 //funções de paginação
-void atribuiPagina(struct bcp*, struct programa*);
-void removePagina(struct bcp*, int);
-
+void inicializaBlocos(blocos*);
+void atribuiPagina(struct programa*, float);
+void removePagina(struct bcp*, float);
 
 //funções do escalonador
-void semaphoreP();  //TO DO
-void semaphoreV();  //TO DO
+void semaphoreP(semaforo *);
+void semaphoreV(semaforo *);

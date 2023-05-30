@@ -3,51 +3,25 @@
 #include <string.h>
 #include <locale.h>
 #include <unistd.h>
+#include <math.h>
 #include <pthread.h>
-#include <semaphore.h>
 #include "functions.h"
 
-#define GIGA 1000000000 //o limite é de memória é 1 GB
-#define nBlocos 125000000 //cada bloco tem 8 bytes, então cabem 125 milhões de blocos nisso
+    //Feito por Bruno ROdrigues da Silveira e Gabriel Inagaki Marcelino
 
-//funções
-
-/*
-Coisas a se fazer:
-
-    Funções
-.interruptControl
-.sysCall
-
-.processInterrupt
-.semaphoreP
-.semaphoreV 
-.memLoadReq 
-.memLoadFinish
-.processCreate 
-.processFinish  
-
-    Algoritmo de Escalonamento
-.Shortest Remaining Time First
-    -determinar tempo de execução da função (soma tempos)
-
-    Gerenciamento de memória
-.Max 1 Gbyte
-    -memória com alocação em blocos, com páginas de 8 kbytes
-    -estrutura baseada em segmentos
-    -memória virtual usando o algoritmo da segunda chance
-
-*/
-
-//Temporizador sintético do programa
+//Defines
+#define GIGA 1000000000 //o limite de memória é de 1 GB
+#define nBlocos 125000 //cada bloco tem 8 kbytes, então cabem 125 mil de blocos nisso
 
 //Variáveis globias
-blocos bloco[nBlocos];  //tem que inicializar
-char comando[10];
-int active = 0;
-pthread_mutex_t lock;
-bcp b;
-programa auxPg;
+blocos bloco[nBlocos]; //vetor de blocos que irão armazenar os processos em páginas
+char comando[10]; //string com o comando a ser lido dos programas (exec, read, write, etc)
+int active = 0; //variavel que verifica se há programas sendo lidos para mostrar ou não no "case 2"
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; //inicializa o bloqueador de thread
+bcp b; //bloco de Controle de Processos
+programa auxPg; //variavel global auxiliar para armazenar dados 
+int funcAdicionadas = 0; //funçoes presentes na fila + a(s) ativa(s)
+int i=0;
 
 //Função main
 int main()  {
@@ -56,14 +30,16 @@ int main()  {
     programa pg;
     char nomeProcesso[16];
 
-    if (!inicializaBCP(&b))
+    if (!inicializaBCP(&b)) //inicializa o BCP
         return 0;
 
-    if (!inicializaPg(&pg))
+    if (!inicializaPg(&pg)) //inicializa o processo programa
         return 0;
+
+    inicializaBlocos(bloco); //inicializa o vetor global de blocos (que tem cento e vinte e cinco mil de posições)
 
     pthread_t execThread;
-    pthread_create(&execThread, NULL, exec, (void*)&b);
+    pthread_create(&execThread, NULL, exec, (void*)&b); //cria uma thread pro bcp
 
         do {
             menu();
@@ -71,37 +47,56 @@ int main()  {
             switch (op) {
                 case 0:
                     break;
-                case 1:
+                case 1: //Caso inserir um arquivo
                     printf("\nInsira o nome do processo que deseja abrir: ");
                     scanf(" %s", nomeProcesso);
-                    pthread_mutex_lock(&lock);
-                    if (programRead(&pg, nomeProcesso, &b))
-                        inserir(&pg, &b);   //problema para inserir 2 valores ou mais
-                    pthread_mutex_unlock(&lock);
+                    pthread_mutex_lock(&lock); //trava a fila para inserção
+                    
+                    processCreate(nomeProcesso);
+
+                    pthread_mutex_unlock(&lock); //destrava
                     break;
-                case 2:
+
+                case 2: //Caso que mostra o status do executavel
                     if (active == 1) {
                         pthread_mutex_lock(&lock);
                         printf("\n\tStatus:");
                         printf("\nNome: %s", auxPg.nome);
                         printf("\nFunção executando: %s", comando);
-                        printf("\nTempo estimado do processo: %d Unit Tempo.\n", auxPg.tempo);
+                        printf("\nTempo estimado do processo: %d Unit. Tempo", auxPg.tempo);
+                        printf("\nFunções na fila: %d\n", funcAdicionadas-1);
                         pthread_mutex_unlock(&lock);
                     }
-                    else {
+                    else 
                         printf("\nNenhum programa execurando no momento!\n");
-                    }
+                    
                     break;
-                case 3:
-                    printf("\n\tStatus da memória:");
-                    sleep(3);
-                    printf("\nSeila maluco nao fiz ainda kk\n");
 
+                case 3: //Caso que mostra a memória
+                    pthread_mutex_lock(&lock);
+
+                    printf("\n\tStatus da memória:");
+                    printf("\nMemória livre: %d Kbytes", GIGA - b.tamTotal);
+                    printf("\nPáginas livres: %d\n\n", (GIGA - b.tamTotal)/8000);
+                    
+/*                //PERIGO! - mostra a memória inteira (cento e vinte e cinto mil de espaços)
+                    printf("\nMemória");    
+                    for (i=0; i<nBlocos; i++) {
+                        printf("%d ", bloco[i].ocupado);
+                        if (bloco[i].paginas!=NULL)
+                            printf("%d %d", bloco[i].paginas->numPag, bloco[i].paginas->refBit);
+                        printf("|");
+                    }
+*/
+                    pthread_mutex_unlock(&lock);
                     break;
+
                 default: printf("Inválido"); 
                     break;
             }
         } while(op != 0);
+
+pthread_mutex_destroy(&lock);
 
 return 0;
 }

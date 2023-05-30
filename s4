@@ -1,8 +1,11 @@
 sint4
 3
 2
-25
+5
 s t
 
-exec 5
+exec 1000
+P(s)
 read 10
+print 1000
+P(t)
