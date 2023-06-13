@@ -7,6 +7,36 @@
 #include <pthread.h>
 #include "functions.h"
 
+/*
+
+feedback aleardo: Falou pra resolver o write que por algum 
+motivo nao tava funcionando da mesma forma que o read 
+Falou pra resolver a condicional do semáforo, que 
+tem que verificar o semáforo propriamente dito e não o nome (em string) dele
+
+Falou pra implementar preempção. Isso acontece quando um processo 
+inserido tem um tempo menor que o processo em atividade.
+O processo que está em atividade é jogado pra fila através de 
+preempção, e o processo com o tempo menor é colocado em atividade
+(foi o que eu entendi que ele quis dizer pelo menos)
+    isso parece bem dificil de fazer
+
+Para a parte 2:
+
+DiskRequest (4) -- chamada de operação de entrada/saída para disco
+DiskFinish (5) -- sinalização de final de E/S para disco
+    diskrequest e diskfinish já são feitos, não? nao vejo como isso seria diferente do que a gente ja fez
+
+PrintRequest (14) -- chamada de operação de entrada/saída para impressão
+PrintFinish (15) -- sinalização de final de E/S para impressão
+    vai printar o que porra
+
+fsRequest (8) -- chamada para operação no sistema de arquivos
+fsFinish (9) -- sinalização de final de operação no sistema de arquivos
+    acho que esses 2 tambem ja foram feitos?????????????????
+
+*/
+
     //Feito por Bruno ROdrigues da Silveira e Gabriel Inagaki Marcelino
 
 //Defines
