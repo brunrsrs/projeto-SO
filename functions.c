@@ -77,7 +77,7 @@ void *exec(void* banco) {
                 active = 1;
                 reader = fopen(b->prog->nome, "r");
 
-                auxPg.tempo = b->prog->tempo;
+                auxPg.tempo = b->prog->tempo;//deve ter algo errado aqui, ultima atribuiçao antes do decremento, ou nao, nao sei
                 fscanf(reader, "%s\n", auxString);
                 strcpy(auxPg.nome, auxString);
                 fscanf(reader, "%d\n", &auxPg.ident);
@@ -97,16 +97,25 @@ void *exec(void* banco) {
                     
                     if(strcmp("exec", comando) == 0){ //ele pediu pra executar por auxInt tempo
                         fscanf(reader, " %d\n", &auxInt);
-                        while(auxInt>=0) {
+                        while(auxInt>=0) {//nao dá pra só colocar a condição desse while como o auxPg.tempo>=0?
                             usleep(1000);
+                            /*
+                            printf("%d", auxInt);
+                            printf(" %d\n", auxPg.tempo);
+                            //fazendo isso pra visualizar, por algum motivo auxInt começa como 1000 (correto) e auxPg.tempo começa como 22750
+                            //isso chamando o programa s1
+
+                            //em alguns pontos esses valores estao subindo também, tanto auxInt quanto auxPg.tempo
+                            */
                             auxInt--;
-                            auxPg.tempo--;
+                            auxPg.tempo--;//decrementando mais do que devia, auxint tá dando != de auxPg.tempo
+
                         }
                     }
                     else if(strcmp("read", comando) == 0){
                         fscanf(reader, " %d\n", &auxInt);
                     }
-                    else if(strcmp("write", comando) == 0){
+                    else if(strcmp("write", comando) == 0){//na minha maquina funciona????
                         fscanf(reader, " %d\n", &auxInt);
                     }
                     else if(strcmp("print", comando) == 0){ //ele pediu pra executar por auxInt tempo
@@ -117,8 +126,8 @@ void *exec(void* banco) {
                             auxPg.tempo--;
                         }
                     }
-                    else if(strcmp("P(s)", comando) == 0){
-                        getc(reader);
+                    else if(strcmp("P(s)", comando) == 0){//acho que ele comentou especificamente dessas condicionais aqui
+                        getc(reader);//ai teria que implementar os semaforos certinho antes pra fazer funcionar como ele quer kk
                     }
                     else if(strcmp("V(s)", comando) == 0){
                         getc(reader);
