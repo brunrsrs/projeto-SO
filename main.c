@@ -84,7 +84,8 @@ int main()  {
                         printf("\nNome: %s", auxPg.nome);
                         printf("\nFunção executando: %s", comando);
                         printf("\nTempo estimado do processo: %d Unit. Tempo", auxPg.tempo);
-                        printf("\nFunções na fila: %d\n", funcAdicionadas-1);
+                        printf("\nFunções na fila: %d", funcAdicionadas-1);
+                        printf("\nFunções esperando semáforos: %d\n", qtdEspera);
                         pthread_mutex_unlock(&lock);
                     }
                     else 

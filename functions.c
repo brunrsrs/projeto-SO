@@ -104,7 +104,6 @@ void *exec(void* banco) {
                 
                 while (!feof(reader)) {
                     fscanf(reader, "%s", comando);
-                    printf("%s\n", comando);
 
                     if(strcmp("exec", comando) == 0){ //ele pediu pra executar por auxInt tempo
                         fscanf(reader, " %d\n", &auxInt);
