@@ -3,10 +3,12 @@ typedef struct programa {
     char nome[20];
     int ident;
     int prior;
-    char semaforos[10];
+    char semaforos[10]; //quais semaforos tem
     int tamanho;
     int tempo;
     float *pagina;
+    int posicao; //diz qual a posiçao esta leitura do programa
+    char qualSemaforo; //diz qual semaforo ele vai precisar
     struct programa *prox; //próximo da lista
 } programa;
 
@@ -29,8 +31,6 @@ typedef struct blocos{
 } blocos;
 
 typedef struct semaforo {
-    int posiFila;
-    struct programa *queue[10]; //Número arbitrário de placeholder
     int valor;
 } semaforo;
 
@@ -39,6 +39,8 @@ void menu();
 int inicializaBCP(bcp*);
 int inicializaPg(programa*);
 void *exec(void*);
+void *wait(void*);
+void *funcES(void*);
 
 //funções do banco de dados
 int processCreate(char*); //previamente conhecida como "progRead"
@@ -51,5 +53,5 @@ void atribuiPagina(struct programa*, float);
 void removePagina(struct bcp*, float);
 
 //funções do escalonador
-void semaphoreP(semaforo *);
-void semaphoreV(semaforo *);
+int semaphoreP(struct semaforo *);
+int semaphoreV(struct semaforo *);

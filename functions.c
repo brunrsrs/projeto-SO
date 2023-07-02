@@ -10,13 +10,19 @@
 #define nBlocos 125000   //cada bloco tem 8 bytes, então cabem 125 mil de blocos nisso
 
 //variaveis globais 2
+extern semaforo sema[256]; 
 extern int funcAdicionadas;
 extern bcp b;
+extern bcp lista;
+extern bcp espera;
 extern programa auxPg;
 extern char comando[20];
 extern int active;
 extern blocos bloco[nBlocos];
 extern pthread_mutex_t lock;
+extern int flag; //verificação dos semáforos
+extern int qtdEspera;
+extern char libSemaforo;
 
 //menu com opções
 void menu() {
@@ -50,6 +56,8 @@ int inicializaPg(programa *p) {
     p->tamanho=0;
     p->tempo=0;
     p->pagina=NULL;
+    p->posicao=0;
+    p->qualSemaforo = 'a';
     return 1;
 }
 
@@ -83,18 +91,21 @@ void *exec(void* banco) {
                 fscanf(reader, "%d\n", &auxPg.ident);
                 fscanf(reader, "%d\n", &auxPg.prior);
                 fscanf(reader, "%d\n", &auxPg.tamanho);
-                
+
                 auxChar = getc(reader);
                 while (auxChar!='\n'){
                     strncat(auxPg.semaforos, &auxChar, 1);
                     auxChar = getc(reader);
-                } 
+                }
 
                 auxChar = getc(reader);
 
+                fseek(reader, b->prog->posicao, SEEK_SET); //posiciona o leitor para continuar de onde parou
+                
                 while (!feof(reader)) {
                     fscanf(reader, "%s", comando);
-                    
+                    printf("%s\n", comando);
+
                     if(strcmp("exec", comando) == 0){ //ele pediu pra executar por auxInt tempo
                         fscanf(reader, " %d\n", &auxInt);
                         while(auxInt>=0) {
@@ -104,10 +115,24 @@ void *exec(void* banco) {
                         }
                     }
                     else if(strcmp("read", comando) == 0){
-                        fscanf(reader, " %d\n", &auxInt);
+                        b->prog->posicao = ftell(reader);
+
+                        pthread_mutex_lock(&lock);  
+                        inserir(b->prog, &lista);
+                        pthread_mutex_unlock(&lock);
+
+                        fseek(reader, 0, SEEK_END);
+                        getc(reader);
                     }
                     else if(strcmp("write", comando) == 0){
-                        fscanf(reader, " %d\n", &auxInt);
+                        b->prog->posicao = ftell(reader);
+
+                        pthread_mutex_lock(&lock);  
+                        inserir(b->prog, &lista);
+                        pthread_mutex_unlock(&lock);
+
+                        fseek(reader, 0, SEEK_END);
+                        getc(reader);
                     }
                     else if(strcmp("print", comando) == 0){ //ele pediu pra executar por auxInt tempo
                         fscanf(reader, " %d\n", &auxInt);
@@ -117,26 +142,41 @@ void *exec(void* banco) {
                             auxPg.tempo--;
                         }
                     }
-                    else if(strcmp("P(s)", comando) == 0){
+
+                    else if (comando[0] == 'P') {
+                        for (auxInt=0; auxInt < strlen(auxPg.semaforos); auxInt++) {
+                            if (auxPg.semaforos[auxInt] == comando[2])
+                                if (semaphoreP(&sema[(int)auxPg.semaforos[auxInt]]) == 0) {
+                                    getc(reader);
+                                    b->prog->posicao = ftell(reader);
+                                    b->prog->qualSemaforo = auxPg.semaforos[auxInt];
+                                    pthread_mutex_lock(&lock);  
+
+                                    inserir(b->prog, &espera);
+                                    qtdEspera++;
+                                    
+                                    pthread_mutex_unlock(&lock);
+                                    fseek(reader, 0, SEEK_END);
+                                }
+                        }
                         getc(reader);
                     }
-                    else if(strcmp("V(s)", comando) == 0){
+                    else if (comando[0] == 'V') {
+                        for (auxInt=0; auxInt < strlen(auxPg.semaforos); auxInt++) {
+                            if (auxPg.semaforos[auxInt] == comando[2]) {
+                                libSemaforo = auxPg.semaforos[auxInt];
+                                semaphoreV(&sema[auxPg.semaforos[auxInt]]);
+                            }
+                        }
                         getc(reader);
                     }
-                    else if(strcmp("V(t)", comando) == 0){
+
+                    else 
                         getc(reader);
-                    }
-                    else if(strcmp("P(t)", comando) == 0){
-                        getc(reader);
-                    }
-                    else
-                        auxChar = getc(reader);
                 }
             fclose(reader);
             
             pthread_mutex_lock(&lock);
-            
-            printf("\n\tAlternado a leitura\n");
 
             if (!processFinish(b->prog->tamanho, b))
                 break;
@@ -148,6 +188,92 @@ void *exec(void* banco) {
     sleep(1);
     }
 }
+//funções dos programas
+//print e exec não têm funções dedicadas por não envolverem e/s, a ideia é usar esses em threads
+void* funcES(void* lista){//previamente eram duas funções (funcRead e funcWrite), mas elas eram identicas
+    FILE* reader;
+    int tempo;
+    bcp *l = (bcp*)lista;
+
+    while(1){
+        if(l->prog){
+            programa *pg;
+            pg = malloc(sizeof(programa));
+            reader = fopen(l->prog->nome, "r");
+            fseek(reader, l->prog->posicao, SEEK_SET);
+            fscanf(reader, " %d", &tempo);
+            getc(reader);
+            l->prog->posicao = ftell(reader);
+
+            usleep(1000 * l->prog->tempo);
+            pg = l->prog;
+
+            inserir(pg, &b);
+            processFinish(l->prog->tamanho, l);
+        }
+    }
+    printf("hino do palmeiras");
+}
+
+void *wait (void* listaEspera) { //lista de programas esperando pelo semaforo
+    bcp* w = (bcp*)listaEspera;
+    programa *auxProg = NULL;
+    programa *auxAnterior = NULL;
+    int flagAlt = 0; //flag para saber se deve mudar para próxima posição
+
+    while (1) {
+        if (w->prog) {
+            if (flag == 1) { //se algum semaforo tiver sido liberado
+                pthread_mutex_lock(&lock);
+                auxAnterior = w->prog;
+                auxProg = w->prog;
+                do {
+                    if (auxProg->prox && flagAlt == 0) {
+                        auxProg = auxProg->prox;
+                        flagAlt = 1;
+                    }
+
+                    if (auxAnterior->qualSemaforo == libSemaforo || auxProg->qualSemaforo == libSemaforo) { //for igual ao semaforo liberado
+                            programa *auxRemov = NULL;
+                            auxRemov = malloc(sizeof(programa));
+                        
+                        //remoção dessa lista
+                        if (w->prog == auxAnterior) { //começo da lista
+                            w->prog->prox = auxAnterior->prox;
+                            auxRemov = auxAnterior;
+                            auxRemov->prox = NULL;
+                            inserir(auxRemov, &b);
+                        }
+                        
+                        else if(!auxProg->prox && auxProg->qualSemaforo == libSemaforo) { //está no fim
+                            auxAnterior->prox = NULL;
+                            auxRemov = auxProg;
+                            auxRemov->prox = NULL;
+                            inserir(auxRemov, &b);
+                        }
+
+                        else { //está no meio
+                            auxRemov = auxProg;
+                            auxRemov->prox = NULL;
+                            if (auxProg->prox)
+                                auxProg = auxProg->prox;
+                            auxAnterior->prox = auxProg;
+                            inserir(auxRemov, &b);
+                            flagAlt = 1;
+                        }
+
+                        qtdEspera--;
+                    }
+                    if (flagAlt == 0)
+                        auxAnterior = auxProg;
+                } while (auxProg->prox);
+
+                pthread_mutex_unlock(&lock);
+            }
+        }
+    }
+}
+
 
 //funções lista
 int inserir(programa *prog, bcp *b){   //p é o programa a ser inserido, b é a bcp mesmo
@@ -172,7 +298,7 @@ int inserir(programa *prog, bcp *b){   //p é o programa a ser inserido, b é a 
             funcAdicionadas++;
             return 1;
         }
-        
+
         programa *aux;
 
         //caso precise inserir no começo, inserir na 2° posição para não quebrar o que está rodando
@@ -306,7 +432,6 @@ int processFinish(int tam, bcp *b){
         b->prog = NULL;   //quando nao resta nada depois da remoção
     
     b->tamTotal -= tam;
-    
     free(aux);
     return 1;
 }
@@ -337,7 +462,7 @@ int processCreate(char nomeProcesso[10]){ //synP de synthethic program
     fscanf(synP, "%d\n", &pg->tamanho); //Lê o tamanho do seg
 
     while(auxChar != '\n')
-        auxChar=fgetc(synP); //Pula a lista de semáforos
+        auxChar=fgetc(synP); //pula lista de semaforos
 
     while(!feof(synP)) {
         fscanf(synP, "%s", comando);
@@ -363,24 +488,26 @@ int processCreate(char nomeProcesso[10]){ //synP de synthethic program
 
 
 //Algumas funções do escalonamento
-void SemaphoreP(semaforo *s) {
-    if (s->valor == 1) //verifica se está sendo utilizada
-        s->valor = 0;
-
-    else {
-        s->posiFila++;
+int semaphoreP(semaforo *s) {
+    if (s->valor == 0) { //verifica se está sendo utilizada
+        s->valor = 1;
+        return 1;
     }
+
+    else
+        return 0;
+
 }
 
-void SemaphoreV(semaforo *s) {
-    int notEmpty = 0;
-    
-    for (int i=0; i<10; i++) //verifica se alguma posição está vazia
-        if (s->queue[i])
-            notEmpty = 1;
+int semaphoreV(semaforo *s) {
+    if (s->valor == 1) { //verifica se está sendo utilizado
+        s->valor = 0;
+        flag = 1;
+        return 1;
+    }
 
     else {
-        s->queue[s->posiFila] = NULL;
-        s->posiFila++;
+        printf("\nSemaforo não ocupado\n");
+        return 0;
     }
 }

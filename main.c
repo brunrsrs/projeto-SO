@@ -18,10 +18,18 @@ blocos bloco[nBlocos]; //vetor de blocos que irão armazenar os processos em pá
 char comando[10]; //string com o comando a ser lido dos programas (exec, read, write, etc)
 int active = 0; //variavel que verifica se há programas sendo lidos para mostrar ou não no "case 2"
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; //inicializa o bloqueador de thread
+
 bcp b; //bloco de Controle de Processos
-programa auxPg; //variavel global auxiliar para armazenar dados 
+bcp lista; //bloco de controle pra E/S
+bcp espera; //bloco pra espera dos semaforos
+
+programa auxPg; //variavel global auxiliar para armazenar dados
+semaforo sema[256]; //vetor com todos os semáforos possíveis
 int funcAdicionadas = 0; //funçoes presentes na fila + a(s) ativa(s)
-int i=0;
+int i = 0;
+int flag = 0;
+int qtdEspera = 0;
+char libSemaforo = 'a';
 
 //Função main
 int main()  {
@@ -33,13 +41,25 @@ int main()  {
     if (!inicializaBCP(&b)) //inicializa o BCP
         return 0;
 
+    if (!inicializaBCP(&espera)) //inicializa a lista de espera
+        return 0;
+
+    if (!inicializaBCP(&lista)) //inicializa a lista de E/S
+        return 0;
+
     if (!inicializaPg(&pg)) //inicializa o processo programa
         return 0;
 
     inicializaBlocos(bloco); //inicializa o vetor global de blocos (que tem cento e vinte e cinco mil de posições)
 
-    pthread_t execThread;
+    pthread_t execThread; //função principal que vai rodar o tempo todo
     pthread_create(&execThread, NULL, exec, (void*)&b); //cria uma thread pro bcp
+
+    pthread_t discThread;   //função para simular entrada e saída
+    pthread_create(&discThread, NULL, funcES, (void*)&lista);
+
+    pthread_t waitingThread; //função para espera de semaforos
+    pthread_create(&waitingThread, NULL, wait, (void*)&espera);
 
         do {
             menu();
