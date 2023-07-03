@@ -13,8 +13,8 @@
 extern semaforo sema[256]; 
 extern int funcAdicionadas;
 extern bcp b;
-extern bcp lista;
-extern bcp espera;
+extern bcp l;
+extern bcp w;
 extern programa auxPg;
 extern char comando[20];
 extern int active;
@@ -70,6 +70,8 @@ void inicializaBlocos(blocos *bloco){
 }
 
 //principal função que vai executar todas as leituras dos arquivos
+    /*Essa função vai ser a fila principal que lerá os programas inseridos. Caso seja inserido um novo, o programa para
+    para a preempção e insere onde deve inserir e depois retorna ao funcionamento normal*/
 void *exec(void* banco) {
     bcp *b = (bcp*)banco;
     char auxChar = '0';
@@ -78,14 +80,13 @@ void *exec(void* banco) {
     FILE* reader;
 
     while(1) { //programa vai executar durante todo programa (vai terminar com o return 0 da main)
-    
         if (b->prog) { //verifica se há algum item na cabeça da lista
 
                 strcpy(comando, "Lendo dados"); //prompt resposta usuário
                 active = 1;
-                reader = fopen(b->prog->nome, "r");
+                reader = fopen(b->prog->nome, "rb");
 
-                auxPg.tempo = b->prog->tempo;
+                auxPg.tempo = b->prog->tempo; //recebe os dados do programa que vai ser lido
                 fscanf(reader, "%s\n", auxString);
                 strcpy(auxPg.nome, auxString);
                 fscanf(reader, "%d\n", &auxPg.ident);
@@ -100,8 +101,10 @@ void *exec(void* banco) {
 
                 auxChar = getc(reader);
 
-                fseek(reader, b->prog->posicao, SEEK_SET); //posiciona o leitor para continuar de onde parou
-                
+                if (b->prog->posicao!=0)
+                    fseek(reader, b->prog->posicao, SEEK_SET); //posiciona o leitor para continuar de onde parou
+
+
                 while (!feof(reader)) {
                     fscanf(reader, "%s", comando);
 
@@ -113,26 +116,34 @@ void *exec(void* banco) {
                             auxPg.tempo--;
                         }
                     }
-                    else if(strcmp("read", comando) == 0){
-                        b->prog->posicao = ftell(reader);
 
-                        pthread_mutex_lock(&lock);  
-                        inserir(b->prog, &lista);
+                    else if(strcmp("read", comando) == 0){ //caso leia comando read
+                        pthread_mutex_lock(&lock);
+
+                        b->prog->posicao = ftell(reader); //salva a posição que ficou a leitura
+                        
+                        funcAdicionadas--;
+                        inserir(b->prog, &l); //insere na lista de espera
+                        processFinish(b->prog->tamanho, b);
+
                         pthread_mutex_unlock(&lock);
-
-                        fseek(reader, 0, SEEK_END);
-                        getc(reader);
                     }
+
                     else if(strcmp("write", comando) == 0){
-                        b->prog->posicao = ftell(reader);
+                        pthread_mutex_lock(&lock);
 
-                        pthread_mutex_lock(&lock);  
-                        inserir(b->prog, &lista);
+                        programa *prog = malloc(sizeof(programa));
+
+                        b->prog->posicao = ftell(reader); //salva a posição que ficou a leitura
+                        fscanf(reader, " %d\n", &auxInt);
+
+                        funcAdicionadas--;
+                        inserir(b->prog, &l); //insere na lista de espera
+                        processFinish(b->prog->tamanho, b);
+
                         pthread_mutex_unlock(&lock);
-
-                        fseek(reader, 0, SEEK_END);
-                        getc(reader);
                     }
+
                     else if(strcmp("print", comando) == 0){ //ele pediu pra executar por auxInt tempo
                         fscanf(reader, " %d\n", &auxInt);
                         while(auxInt>=0) {
@@ -142,25 +153,27 @@ void *exec(void* banco) {
                         }
                     }
 
-                    else if (comando[0] == 'P') {
+                    else if (comando[0] == 'P') { //caso leia um semaforo de entrada (P) faz essa operação
                         for (auxInt=0; auxInt < strlen(auxPg.semaforos); auxInt++) {
-                            if (auxPg.semaforos[auxInt] == comando[2])
-                                if (semaphoreP(&sema[(int)auxPg.semaforos[auxInt]]) == 0) {
+                            if (auxPg.semaforos[auxInt] == comando[2]) //verifica se semaforo escolhido é o mesmo do procurado
+                                if (semaphoreP(&sema[(int)auxPg.semaforos[auxInt]]) == 0) { //caso esteja bloqueado, entra nesse caso
+                                    pthread_mutex_lock(&lock);
                                     getc(reader);
-                                    b->prog->posicao = ftell(reader);
+                                    b->prog->posicao = ftell(reader); //armazena a posição antes de ser levado para a fila de espera
                                     b->prog->qualSemaforo = auxPg.semaforos[auxInt];
-                                    pthread_mutex_lock(&lock);  
 
-                                    inserir(b->prog, &espera);
+                                    inserir(b->prog, &w);
+                                    funcAdicionadas--;
                                     qtdEspera++;
-                                    
+
                                     pthread_mutex_unlock(&lock);
                                     fseek(reader, 0, SEEK_END);
                                 }
                         }
                         getc(reader);
                     }
-                    else if (comando[0] == 'V') {
+
+                    else if (comando[0] == 'V') { //caso leia um semaforo de liberação (V)
                         for (auxInt=0; auxInt < strlen(auxPg.semaforos); auxInt++) {
                             if (auxPg.semaforos[auxInt] == comando[2]) {
                                 libSemaforo = auxPg.semaforos[auxInt];
@@ -173,47 +186,58 @@ void *exec(void* banco) {
                     else 
                         getc(reader);
                 }
+            pthread_mutex_lock(&lock);
             fclose(reader);
             
-            pthread_mutex_lock(&lock);
-
             if (!processFinish(b->prog->tamanho, b))
                 break;
             funcAdicionadas--;
 
-            pthread_mutex_unlock(&lock);        
+            pthread_mutex_unlock(&lock);
         }
     active=0;
     sleep(1);
     }
+    printf("\n\tO programa parou\n");
 }
-//funções dos programas
-//print e exec não têm funções dedicadas por não envolverem e/s, a ideia é usar esses em threads
-void* funcES(void* lista){//previamente eram duas funções (funcRead e funcWrite), mas elas eram identicas
-    FILE* reader;
+
+/*Essa função é dedicada a parte de entrada e saída. Quando for chamado uma função de Read ou Write, 
+o programa será inserido nessa lista para executar por certo tempo. Depois o programa será inserido novamente na 
+lista principal ("exec")
+"Print" e "Exec" não têm funções dedicadas por não envolverem E/S, a ideia é usar esses em threads*/
+void* funcES(void* lista) {
+    FILE* leitor;
     int tempo;
+    int i;
     bcp *l = (bcp*)lista;
 
     while(1){
         if(l->prog){
-            programa *pg;
-            pg = malloc(sizeof(programa));
-            reader = fopen(l->prog->nome, "r");
-            fseek(reader, l->prog->posicao, SEEK_SET);
-            fscanf(reader, " %d", &tempo);
-            getc(reader);
-            l->prog->posicao = ftell(reader);
+            pthread_mutex_lock(&lock);
+            leitor = fopen(l->prog->nome, "rb");
+            fseek(leitor, l->prog->posicao, SEEK_SET);  //voltando a ler de onde parou, logo após o read/write
+            fscanf(leitor, " %d", &tempo);
 
-            usleep(1000 * l->prog->tempo);
-            pg = l->prog;
+            l->prog->posicao = ftell(leitor); //armazena a posição onde parou a leitura
 
-            inserir(pg, &b);
-            processFinish(l->prog->tamanho, l);
+            for (i=0; i<tempo; i++) { //tempo para fazer a operação
+                l->prog->tempo--;
+                usleep(1000);
+            }
+
+            funcAdicionadas--;
+            inserir(l->prog, &b); //insere novamente na lista principal (exec)
+            fclose(leitor);
+            processFinish(l->prog->tamanho, l); //move pro próximo da lista de entrada e saida
+            pthread_mutex_unlock(&lock);
         }
     }
-    printf("hino do palmeiras");
 }
 
+
+/*Essa função é uma thread que vai receber uma lista dos programas que estão aguardando para usarem um
+semaforo. Assim que um semáforo for liberado, a variavel global flag vira 1 e o programa procura todos
+aqueles que estavam bloqueados pelo semaforo: "libSemaforo" e inserem denovo à thread "exec"*/
 void *wait (void* listaEspera) { //lista de programas esperando pelo semaforo
     bcp* w = (bcp*)listaEspera;
     programa *auxProg = NULL;
@@ -227,7 +251,7 @@ void *wait (void* listaEspera) { //lista de programas esperando pelo semaforo
                 auxAnterior = w->prog;
                 auxProg = w->prog;
                 do {
-                    if (auxProg->prox && flagAlt == 0) {
+                    if (auxProg->prox && flagAlt == 0) {//verifica se ambos existem para funcionamento
                         auxProg = auxProg->prox;
                         flagAlt = 1;
                     }
@@ -242,6 +266,7 @@ void *wait (void* listaEspera) { //lista de programas esperando pelo semaforo
                             auxRemov = auxAnterior;
                             auxRemov->prox = NULL;
                             inserir(auxRemov, &b);
+                            funcAdicionadas--;
                         }
                         
                         else if(!auxProg->prox && auxProg->qualSemaforo == libSemaforo) { //está no fim
@@ -249,6 +274,7 @@ void *wait (void* listaEspera) { //lista de programas esperando pelo semaforo
                             auxRemov = auxProg;
                             auxRemov->prox = NULL;
                             inserir(auxRemov, &b);
+                            funcAdicionadas--;
                         }
 
                         else { //está no meio
@@ -258,6 +284,7 @@ void *wait (void* listaEspera) { //lista de programas esperando pelo semaforo
                                 auxProg = auxProg->prox;
                             auxAnterior->prox = auxProg;
                             inserir(auxRemov, &b);
+                            funcAdicionadas--;
                             flagAlt = 1;
                         }
 
@@ -265,6 +292,7 @@ void *wait (void* listaEspera) { //lista de programas esperando pelo semaforo
                     }
                     if (flagAlt == 0)
                         auxAnterior = auxProg;
+
                 } while (auxProg->prox);
 
                 pthread_mutex_unlock(&lock);
@@ -275,9 +303,9 @@ void *wait (void* listaEspera) { //lista de programas esperando pelo semaforo
 
 
 //funções lista
-int inserir(programa *prog, bcp *b){   //p é o programa a ser inserido, b é a bcp mesmo
-    if(b->tamTotal+prog->tamanho <= GIGA) {
-        b->tamTotal+=prog->tamanho;
+int inserir(programa *prog, bcp *banc){   //p é o programa a ser inserido, b é a bcp mesmo
+    if(banc->tamTotal+prog->tamanho <= GIGA) {
+        banc->tamTotal+=prog->tamanho;
         atribuiPagina(prog, prog->tamanho);
 
     //cria um programa auxiliar que será adicionado a lista
@@ -285,15 +313,15 @@ int inserir(programa *prog, bcp *b){   //p é o programa a ser inserido, b é a 
     p = malloc(sizeof(programa));
     p = prog;
 
-        if (!p || !b) {
+        if (!p || !banc) {
             printf("\n\tNão foi possível inicializar\n");
             return 0;
         }
 
         //insere vazia
-        if(b->prog == NULL) {
-            b->prog = p;
-            b->prog->prox = NULL;
+        if(banc && banc->prog == NULL) {
+            banc->prog = p;
+            banc->prog->prox = NULL;
             funcAdicionadas++;
             return 1;
         }
@@ -301,15 +329,15 @@ int inserir(programa *prog, bcp *b){   //p é o programa a ser inserido, b é a 
         programa *aux;
 
         //caso precise inserir no começo, inserir na 2° posição para não quebrar o que está rodando
-        if (p->tempo < b->prog->tempo) {
-            if (!b->prog->prox) { //caso não tenha mais nada depois
-                b->prog->prox = p;
+        if (banc && p->tempo < banc->prog->tempo) {
+            if (!banc->prog->prox) { //caso não tenha mais nada depois
+                banc->prog->prox = p;
                 p->prox = NULL;
                 funcAdicionadas++;
                 return 1;
             }
-            p->prox = b->prog->prox;
-            b->prog->prox = p;
+            p->prox = banc->prog->prox;
+            banc->prog->prox = p;
             funcAdicionadas++;
             return 1;
         }
@@ -317,12 +345,12 @@ int inserir(programa *prog, bcp *b){   //p é o programa a ser inserido, b é a 
         programa *proxAux;  //auxiliar que será sempre prox do auxiliar anterior
         proxAux=NULL;   //Inicializando variavel
 
-        if (b->prog->prox)  //Caso exista um 2° elemento
-            proxAux = b->prog->prox;
-        
-        aux = b->prog;  //variavel anterior ao proxAux
+        if (banc && banc->prog->prox)  //Caso exista um 2° elemento
+            proxAux = banc->prog->prox;
+
+        aux = banc->prog;  //variavel anterior ao proxAux
 //esse while vai falhar caso exista apenas 1 elemento na fila ou chegar ao fim ou encontrar o lugar de inserir
-        while (proxAux && proxAux->tempo < p->tempo) {
+        while (banc && proxAux && proxAux->tempo < p->tempo) {
             aux = aux->prox;
             if (proxAux->prox)
                 proxAux = proxAux->prox;
@@ -334,7 +362,7 @@ int inserir(programa *prog, bcp *b){   //p é o programa a ser inserido, b é a 
         }
 
         //insere no final (caso tenha apenas 1 elemento ou vários)
-        if (!aux->prox) {
+        if (banc && !aux->prox) {
             aux->prox = p;
             p->prox = NULL;
             funcAdicionadas++;
@@ -416,7 +444,7 @@ int processFinish(int tam, bcp *b){
         return 0;
     }
 
-    if(b->tamTotal - tam < 0){   //verificando se a subtração dá um valor inválido
+    if((b->tamTotal - tam) < 0){   //verificando se a subtração dá um valor inválido
         printf("\nAlgo deu errado na remoção");
         return 0;
     }
@@ -431,15 +459,14 @@ int processFinish(int tam, bcp *b){
         b->prog = NULL;   //quando nao resta nada depois da remoção
     
     b->tamTotal -= tam;
-    free(aux);
     return 1;
 }
 
-int processCreate(char nomeProcesso[10]){ //synP de synthethic program
+int processCreate(char nomeProcesso[30]){ //synP de synthethic program
     FILE *synP;
     char comando[5];
     int valorComando;
-    char auxTxt[10];
+    char auxTxt[30];
     char auxChar;
     int aux;
     programa *pg;
@@ -489,7 +516,7 @@ int processCreate(char nomeProcesso[10]){ //synP de synthethic program
 //Algumas funções do escalonamento
 int semaphoreP(semaforo *s) {
     if (s->valor == 0) { //verifica se está sendo utilizada
-        s->valor = 1;
+        s->valor = 1; //se não estiver, torna valor = 1 (está sendo utilizada)
         return 1;
     }
 
@@ -500,7 +527,7 @@ int semaphoreP(semaforo *s) {
 
 int semaphoreV(semaforo *s) {
     if (s->valor == 1) { //verifica se está sendo utilizado
-        s->valor = 0;
+        s->valor = 0; //se estiver, torna valor = 0 (não utilizada)
         flag = 1;
         return 1;
     }

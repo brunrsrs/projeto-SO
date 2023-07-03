@@ -20,12 +20,12 @@ int active = 0; //variavel que verifica se há programas sendo lidos para mostra
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; //inicializa o bloqueador de thread
 
 bcp b; //bloco de Controle de Processos
-bcp lista; //bloco de controle pra E/S
-bcp espera; //bloco pra espera dos semaforos
+bcp l; //bloco de controle pra E/S
+bcp w; //bloco pra espera dos semaforos
 
 programa auxPg; //variavel global auxiliar para armazenar dados
 semaforo sema[256]; //vetor com todos os semáforos possíveis
-int funcAdicionadas = 0; //funçoes presentes na fila + a(s) ativa(s)
+int funcAdicionadas = 0; //funçoes presentes na fila
 int i = 0;
 int flag = 0;
 int qtdEspera = 0;
@@ -41,10 +41,10 @@ int main()  {
     if (!inicializaBCP(&b)) //inicializa o BCP
         return 0;
 
-    if (!inicializaBCP(&espera)) //inicializa a lista de espera
+    if (!inicializaBCP(&w)) //inicializa a lista de espera
         return 0;
 
-    if (!inicializaBCP(&lista)) //inicializa a lista de E/S
+    if (!inicializaBCP(&l)) //inicializa a lista de E/S
         return 0;
 
     if (!inicializaPg(&pg)) //inicializa o processo programa
@@ -56,10 +56,10 @@ int main()  {
     pthread_create(&execThread, NULL, exec, (void*)&b); //cria uma thread pro bcp
 
     pthread_t discThread;   //função para simular entrada e saída
-    pthread_create(&discThread, NULL, funcES, (void*)&lista);
+    pthread_create(&discThread, NULL, funcES, (void*)&l);
 
     pthread_t waitingThread; //função para espera de semaforos
-    pthread_create(&waitingThread, NULL, wait, (void*)&espera);
+    pthread_create(&waitingThread, NULL, wait, (void*)&w);
 
         do {
             menu();
@@ -89,7 +89,7 @@ int main()  {
                         pthread_mutex_unlock(&lock);
                     }
                     else 
-                        printf("\nNenhum programa execurando no momento!\n");
+                        printf("\nNenhum programa executando no momento!\n");
                     
                     break;
 
@@ -100,15 +100,6 @@ int main()  {
                     printf("\nMemória livre: %d Kbytes", GIGA - b.tamTotal);
                     printf("\nPáginas livres: %d\n\n", (GIGA - b.tamTotal)/8000);
                     
-/*                //PERIGO! - mostra a memória inteira (cento e vinte e cinto mil de espaços)
-                    printf("\nMemória");    
-                    for (i=0; i<nBlocos; i++) {
-                        printf("%d ", bloco[i].ocupado);
-                        if (bloco[i].paginas!=NULL)
-                            printf("%d %d", bloco[i].paginas->numPag, bloco[i].paginas->refBit);
-                        printf("|");
-                    }
-*/
                     pthread_mutex_unlock(&lock);
                     break;
 

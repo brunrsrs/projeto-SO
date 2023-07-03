@@ -1,6 +1,6 @@
 //Struct que armazenará os valores lidos
 typedef struct programa {
-    char nome[20];
+    char nome[30];
     int ident;
     int prior;
     char semaforos[10]; //quais semaforos tem

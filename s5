@@ -4,4 +4,5 @@ sint5
 5
 s t
 
-exec 100000
+exec 1000
+read 10

@@ -6,6 +6,5 @@ s t
 
 exec 1000
 P(s)
-read 10
 print 1000
 V(s)
